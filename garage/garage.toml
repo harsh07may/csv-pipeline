@@ -1,0 +1,31 @@
+# Single-node Garage config for local development, following the official quick start:
+# https://garagehq.deuxfleurs.fr/documentation/quick-start/
+metadata_dir = "/var/lib/garage/meta"
+data_dir = "/var/lib/garage/data"
+db_engine = "sqlite"
+
+# 1 copy of each object: no redundancy. Production clusters use 3 nodes and replication_factor = 3.
+replication_factor = 1
+
+rpc_bind_addr = "[::]:3901"
+rpc_public_addr = "127.0.0.1:3901"
+# DEMO-ONLY secret. Generate your own: openssl rand -hex 32
+rpc_secret = "d9a54bd9f96a02601166cb8343205dae39193eb845277050cb2fe9b1b41c59bc"
+
+# The S3 API: this is what boto3 and the browser talk to.
+[s3_api]
+s3_region = "garage"
+api_bind_addr = "[::]:3900"
+root_domain = ".s3.garage.localhost"   # enables bucket.s3.garage.localhost-style URLs; we use path-style
+
+# Serves buckets as static websites. Our app doesn't use it; kept to match the reference setup.
+[s3_web]
+bind_addr = "[::]:3902"
+root_domain = ".web.garage.localhost"
+
+# Admin API + Prometheus metrics (see the "Explore" labs).
+# DEMO-ONLY tokens. Generate your own: openssl rand -base64 32
+[admin]
+api_bind_addr = "[::]:3903"
+admin_token = "9bbd40b1098fb0f653ec461d5836c849108f82b05cb08af4d16a2ffcc96342c3"
+metrics_token = "27c4d4c46a13402c52ebf233e495b8511ff9e81c723063fdf38ded64803d757d"

@@ -4,7 +4,30 @@ services:
   api:
     build: ./backend
     command: uvicorn app.api.main:app --host 0.0.0.0 --port 8000 --reload
+    env_file:
+      - .env
     ports: ["8000:8000"]
     volumes:
       - ./backend/app:/code/app      # your edits appear inside the container; --reload restarts
-      
+    depends_on: [garage]
+  # Garage: S3-compatible blob storage
+  garage:
+    image: dxflrs/garage:v2.3.0
+    # --single-node: set up a one-node cluster layout automatically.
+    # --default-bucket: create the bucket and access key below (and grant the key access).
+    command: ["/garage", "server", "--single-node", "--default-bucket"]
+    environment:
+      # Filled in from .env, so Garage and the app share one set of credentials.
+      GARAGE_DEFAULT_ACCESS_KEY: ${S3_ACCESS_KEY}
+      GARAGE_DEFAULT_SECRET_KEY: ${S3_SECRET_KEY}
+      GARAGE_DEFAULT_BUCKET: ${S3_BUCKET}
+    ports:
+      - "3900:3900"   # S3 API (the browser uploads here via pre-signed URLs)
+      - "3903:3903"   # admin API + /metrics
+    volumes:
+      - ./garage/garage.toml:/etc/garage.toml:ro
+      - garage-meta:/var/lib/garage/meta
+      - garage-data:/var/lib/garage/data
+volumes:
+  garage-meta:
+  garage-data:
