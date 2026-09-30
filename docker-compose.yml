@@ -1,0 +1,10 @@
+services:
+
+  # FastAPI: HTTP endpoints + live progress (SSE)
+  api:
+    build: ./backend
+    command: uvicorn app.api.main:app --host 0.0.0.0 --port 8000 --reload
+    ports: ["8000:8000"]
+    volumes:
+      - ./backend/app:/code/app      # your edits appear inside the container; --reload restarts
+      
