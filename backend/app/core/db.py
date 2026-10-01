@@ -6,7 +6,7 @@ from .config import DB_PATH, SQL_ECHO
 
 # The engine owns a pool of DB connections.
 engine = create_engine(
-    f" sqlite:///{DB_PATH}",
+    f"sqlite:///{DB_PATH}",
     echo=SQL_ECHO,
     connect_args={"timeout": 10},
 )
