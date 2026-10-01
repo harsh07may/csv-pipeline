@@ -12,3 +12,7 @@ S3_SECRET_KEY = os.environ["S3_SECRET_KEY"]
 S3_INTERNAL_ENDPOINT = os.getenv("S3_INTERNAL_ENDPOINT", "http://garage:3900")
 S3_PUBLIC_ENDPOINT = os.getenv("S3_PUBLIC_ENDPOINT", "http://localhost:3900")
 FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:5173")
+
+# --- Database ---
+DB_PATH = os.getenv("DB_PATH", "/data/app.db")
+SQL_ECHO = os.getenv("SQL_ECHO", "false").lower() == "true"   # print every SQL statement
