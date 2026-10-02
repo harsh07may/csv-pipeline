@@ -1,22 +1,21 @@
 services:
-
   # FastAPI: HTTP endpoints + live progress (SSE)
   api:
     build: ./backend
     command: uvicorn app.api.main:app --host 0.0.0.0 --port 8000 --reload
     env_file:
       - .env
-    ports: [ "8000:8000" ]
+    ports: ["8000:8000"]
     volumes:
       - ./backend/app:/code/app # your edits appear inside the container; --reload restarts
       - sqlite-data:/data
-    depends_on: [ garage ]
+    depends_on: [garage, redis]
   # Garage: S3-compatible blob storage
   garage:
     image: dxflrs/garage:v2.3.0
     # --single-node: set up a one-node cluster layout automatically.
     # --default-bucket: create the bucket and access key below (and grant the key access).
-    command: [ "/garage", "server", "--single-node", "--default-bucket" ]
+    command: ["/garage", "server", "--single-node", "--default-bucket"]
     environment:
       # Filled in from .env, so Garage and the app share one set of credentials.
       GARAGE_DEFAULT_ACCESS_KEY: ${S3_ACCESS_KEY}
@@ -37,11 +36,25 @@ services:
       API_BASE_URL: http://garage:3903 # Garage admin API (token is read from garage.toml)
       S3_ENDPOINT_URL: http://garage:3900
       CONFIG_PATH: /etc/garage.toml
-    ports: [ "3909:3909" ]
+    ports: ["3909:3909"]
     volumes:
       - ./garage/garage.toml:/etc/garage.toml:ro
-    depends_on: [ garage ]
+    depends_on: [garage]
 
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+
+  rq-worker:
+    build: ./backend
+    # 'csv' - queue name, --url - redis connection string, --with-scheduler - enable scheduled jobs
+    command: rq worker csv --url ${REDIS_URL}
+    env_file:
+      - .env
+    volumes:
+      - ./backend/app:/code/app
+      - sqlite-data:/data
+    depends_on: [garage, redis]
 volumes:
   garage-meta:
   garage-data:

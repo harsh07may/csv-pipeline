@@ -16,3 +16,10 @@ FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:5173")
 # --- Database ---
 DB_PATH = os.getenv("DB_PATH", "/data/app.db")
 SQL_ECHO = os.getenv("SQL_ECHO", "false").lower() == "true"   # print every SQL statement
+
+# --- Queue ---
+REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
+QUEUE_NAME = "csv"
+# Import path the worker resolves; a string so the API never imports worker code.
+# Must match the real function in app/worker/tasks.py.
+PROCESS_CSV_TASK = "app.worker.tasks.process_csv"
