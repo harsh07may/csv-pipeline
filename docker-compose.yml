@@ -74,7 +74,6 @@ services:
 
   # Background worker: RQ + scheduled jobs
   worker:
-    container_name: worker
     build: ./backend
     # 'csv' - queue name, --url - redis connection string, --with-scheduler - enable scheduled jobs
     command: rq worker csv --url ${REDIS_URL}
