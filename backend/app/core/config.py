@@ -23,3 +23,8 @@ QUEUE_NAME = "csv"
 # Import path the worker resolves; a string so the API never imports worker code.
 # Must match the real function in app/worker/tasks.py.
 PROCESS_CSV_TASK = "app.worker.tasks.process_csv"
+
+
+# --- Processing ---
+# Simulated delay in seconds for testing; 0 means no delay.
+SIMULATED_DELAY_SECONDS = float(os.getenv("SIMULATED_DELAY_SECONDS", "0"))
