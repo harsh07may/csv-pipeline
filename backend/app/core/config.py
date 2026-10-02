@@ -28,3 +28,6 @@ PROCESS_CSV_TASK = "app.worker.tasks.process_csv"
 # --- Processing ---
 # Simulated delay in seconds for testing; 0 means no delay.
 SIMULATED_DELAY_SECONDS = float(os.getenv("SIMULATED_DELAY_SECONDS", "0"))
+
+# --- Cache ---
+CACHE_TTL_SECONDS = 300
