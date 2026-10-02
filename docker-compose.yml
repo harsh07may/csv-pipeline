@@ -1,16 +1,16 @@
 services:
-  # FastAPI: HTTP endpoints + live progress (SSE)
+  # Express: HTTP endpoints + live progress (SSE)
   api:
     container_name: api
-    build: ./backend
+    build: { context: ./backend, target: dev }
     # Apply database migrations first, then start the server. Only the api migrates, so the
     # worker never races it; the worker starts after the database is healthy.
-    command: sh -c "alembic -c app/alembic.ini upgrade head && uvicorn app.api.main:app --host 0.0.0.0 --port 8000 --reload"
+    command: sh -c "npm run migrate && npm run dev:api"
     env_file:
       - .env
     ports: ["8000:8000"]
     volumes:
-      - ./backend/app:/code/app # your edits appear inside the container; --reload restarts
+      - ./backend/src:/code/src # your edits appear inside the container; tsx watch restarts
     depends_on:
       postgres: { condition: service_healthy } # wait until the database accepts connections
       garage: { condition: service_started }
@@ -79,15 +79,14 @@ services:
     ports:
       - "16686:16686" # trace UI. The apps send spans to jaeger:4318 (OTLP over HTTP) inside the network.
 
-  # Background worker: pulls jobs from the "csv" queue (see app/worker/main.py)
+  # Background worker: pulls jobs from the "csv" queue (see backend/src/worker/index.ts)
   worker:
-    build: ./backend
-    # Same as `rq worker csv`, but sets up structured logs and tracing before the first job.
-    command: python -m app.worker.main
+    build: { context: ./backend, target: dev }
+    command: npm run dev:worker
     env_file:
       - .env
     volumes:
-      - ./backend/app:/code/app
+      - ./backend/src:/code/src
     depends_on:
       postgres: { condition: service_healthy }
       garage: { condition: service_started }

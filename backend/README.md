@@ -1,9 +1,10 @@
 # CSV Pipeline Backend
 
-- `docker compose up -d --build` to start the backend server
+Node.js 22 + TypeScript: an Express API (`src/api`) and a BullMQ worker (`src/worker`).
 
+- `docker compose up -d --build` starts the backend (api, worker, Postgres, Redis, Garage, Jaeger).
+- `docker compose logs -f api` shows the logs of the API (JSON, one object per line).
+- `docker compose exec -T api npm run setup-storage` sets the bucket CORS once, so the browser can upload.
+- `npm run typecheck && npm run lint` check the code; `npm run build` compiles it to `dist/`.
 
-- `docker compose logs -f api` to view the logs of the backend server.
-
-
-- Check the Dockerfile at [Dockerfile](./Dockerfile) for more information. 
+See the [Dockerfile](./Dockerfile) for the dev and production images.

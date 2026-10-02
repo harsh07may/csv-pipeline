@@ -1,4 +1,4 @@
-/** A job as the API returns it (mirrors JobOut in backend/app/api/schemas.py). */
+/** A job as the API returns it (mirrors toJobOut in backend/src/api/jobs.ts). */
 export interface JobState {
   id: string;
   filename: string;
