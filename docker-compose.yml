@@ -1,6 +1,7 @@
 services:
   # FastAPI: HTTP endpoints + live progress (SSE)
   api:
+    container_name: api
     build: ./backend
     command: uvicorn app.api.main:app --host 0.0.0.0 --port 8000 --reload
     env_file:
@@ -10,8 +11,10 @@ services:
       - ./backend/app:/code/app # your edits appear inside the container; --reload restarts
       - sqlite-data:/data
     depends_on: [garage, redis]
+
   # Garage: S3-compatible blob storage
   garage:
+    container_name: garage
     image: dxflrs/garage:v2.3.0
     # --single-node: set up a one-node cluster layout automatically.
     # --default-bucket: create the bucket and access key below (and grant the key access).
@@ -29,8 +32,9 @@ services:
       - garage-meta:/var/lib/garage/meta
       - garage-data:/var/lib/garage/data
 
-  # Community web UI for Garage (buckets, objects, keys, cluster status): http://localhost:3909
+  # Community web UI for Garage
   garage-webui:
+    container_name: garage-webui
     image: khairul169/garage-webui:latest
     environment:
       API_BASE_URL: http://garage:3903 # Garage admin API (token is read from garage.toml)
@@ -41,11 +45,15 @@ services:
       - ./garage/garage.toml:/etc/garage.toml:ro
     depends_on: [garage]
 
+  # Redis: pub/sub for live progress + RQ queue for background jobs
   redis:
+    container_name: redis
     image: redis:7-alpine
     ports: ["6379:6379"]
 
-  rq-worker:
+  # Background worker: RQ + scheduled jobs
+  worker:
+    container_name: worker
     build: ./backend
     # 'csv' - queue name, --url - redis connection string, --with-scheduler - enable scheduled jobs
     command: rq worker csv --url ${REDIS_URL}
@@ -55,6 +63,7 @@ services:
       - ./backend/app:/code/app
       - sqlite-data:/data
     depends_on: [garage, redis]
+
 volumes:
   garage-meta:
   garage-data:

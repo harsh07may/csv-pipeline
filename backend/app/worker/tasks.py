@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import SIMULATED_DELAY_SECONDS
 from app.core.db import SessionLocal
+from app.core.events import publish_job_event
 from app.core.models import Job, JobStatus, Order, RejectedRow
 from app.core.processing import RowError, check_header, process_row
 from app.core.storage import download_file
@@ -33,6 +34,8 @@ def process_csv(job_id: str) -> dict:
 
         job.status = JobStatus.PROCESSING
         session.commit()
+        publish_job_event(job_id, {"status": job.status, "total_rows": 0})
+
         try:
             with tempfile.TemporaryDirectory() as tmp_dir:
                 local_path = os.path.join(tmp_dir, "input.csv")
@@ -43,6 +46,7 @@ def process_csv(job_id: str) -> dict:
             session.rollback()                  # discard the half-finished batch
             job.status, job.error = JobStatus.FAILED, str(exc)
             session.commit()
+            publish_job_event(job_id, {"status": job.status, "error": job.error})
             raise  
 
         job.status = JobStatus.COMPLETED
@@ -53,6 +57,7 @@ def process_csv(job_id: str) -> dict:
                  "valid_rows": job.valid_rows,
                  "invalid_rows": job.invalid_rows
                  }
+        publish_job_event(job_id, {"status": job.status, **stats})
 
     return stats    
 
@@ -69,54 +74,61 @@ def _process_file(session: Session, job: Job, path: str) -> None:
     job.expected_rows = _count_data_lines(path)
     session.commit()
     
-    total = invalid = 0
+    total = valid = invalid = stored_errors = 0
     seen_order_ids: set[str] = set()
     good_rows: list[dict] = []
     rejected: list[dict] = []
-
+    
     # utf-8-sig silently drops the BOM that Excel likes to add at the start of CSV files.
     with open(path, newline="", encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
         check_header(reader.fieldnames or [])
 
-        for raw in reader:
+        for line_number, raw in enumerate(reader, start=2):   # line 1 is the header
             total += 1
             try:
                 row = process_row(raw)
-                order_id = row["order_id"]
                 # A rule that needs context across rows lives here, not in process_row().
-                if order_id in seen_order_ids:
-                    raise RowError(f"duplicate order_id '{order_id}'")
-                seen_order_ids.add(order_id)
+                if row["order_id"] in seen_order_ids:
+                    raise RowError(f"duplicate order_id '{row['order_id']}'")
+                seen_order_ids.add(row["order_id"])
                 good_rows.append({"job_id": job.id, **row})
+                valid += 1
             except RowError as err:
                 invalid += 1
-                if invalid <= MAX_STORED_ERRORS:   # keep a sample, not millions
-                    rejected.append({"job_id": job.id, "row_number": reader.line_num, "message": str(err)})
-
+                if stored_errors < MAX_STORED_ERRORS:
+                    rejected.append({"job_id": job.id, "row_number": line_number, "message": str(err)})
+                    stored_errors += 1
+            
+            
             if total % BATCH_SIZE == 0:
-                _save_batch(session, job, good_rows, rejected, total, invalid)
+                _save_batch(session, job, good_rows, rejected, total, valid, invalid)
                 good_rows, rejected = [], []
                 time.sleep(SIMULATED_DELAY_SECONDS)   # DEMO ONLY: lets you watch the progress bar
+    
+    if total % BATCH_SIZE or total == 0:   # a partly filled last batch (or an empty file)
+        _save_batch(session, job, good_rows, rejected, total, valid, invalid)
 
-    # Final (possibly partial) batch; also records the counters for an empty file.
-    _save_batch(session, job, good_rows, rejected, total, invalid)
 
 
-def _save_batch(session: Session, job: Job,
+def _save_batch(session: Session, job: Job, 
                 good_rows: list[dict], failed_rows: list[dict],
-                total: int, invalid: int) -> None:
-
+                total: int, valid: int, invalid: int) -> None:
+    
     # Bulk INSERT: one statement executed for many parameter sets. Much faster than
     # creating an Order object per row, which matters when a file has 100k rows.
     if good_rows:
         session.execute(insert(Order), good_rows)
     if failed_rows:
         session.execute(insert(RejectedRow), failed_rows)
-
-    job.total_rows, job.valid_rows, job.invalid_rows = total, total - invalid, invalid
+    
+    job.total_rows, job.valid_rows, job.invalid_rows = total, valid, invalid
     session.commit()   # rows + progress counters land in ONE transaction: never out of sync
 
+    publish_job_event(job.id, {
+    "status": JobStatus.PROCESSING, "expected_rows": job.expected_rows,
+    "total_rows": total, "valid_rows": valid, "invalid_rows": invalid,
+})
 
 def _count_data_lines(path: str) -> int:
     """Cheap pre-scan so the UI can show a percentage. Approximate if fields contain newlines."""
