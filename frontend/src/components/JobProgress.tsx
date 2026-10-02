@@ -1,18 +1,10 @@
 import type { JobUpdate } from "../hooks/useJobEvents";
 import { formatCount } from "../lib/format";
+import { STATUS_LABEL } from "../lib/status";
 
 interface JobProgressProps {
   job: JobUpdate;
 }
-
-const STATUS_LABEL: Record<string, string> = {
-  awaiting_upload: "Waiting for upload",
-  queued: "Waiting for a worker",
-  processing: "Processing",
-  completed: "Completed",
-  failed: "Failed",
-  not_found: "Job not found",
-};
 
 export default function JobProgress({ job }: JobProgressProps) {
   const status = job.status ?? "queued";

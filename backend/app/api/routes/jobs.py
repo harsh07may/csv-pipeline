@@ -21,6 +21,19 @@ from app.core.storage import object_exists
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
 
+@router.get("", response_model=list[JobOut])
+def list_jobs(session: SessionDep, limit: int = Query(10, ge=1, le=50)):
+    """The most recent imports, newest first, so the UI can reopen past jobs."""
+
+    #* Jobs still waiting for their upload are left out: the user never finished starting them.
+    return session.scalars(
+        select(Job)
+        .where(Job.status != JobStatus.AWAITING_UPLOAD)
+        .order_by(Job.created_at.desc())
+        .limit(limit)
+    ).all()
+
+
 @router.post("/{job_id}/start", response_model=JobOut)
 def start_job(job: JobDep, session: SessionDep):
     """Client says the upload finished: verify the file is there, then queue the work."""

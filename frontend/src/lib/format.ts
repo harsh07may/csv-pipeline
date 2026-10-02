@@ -21,3 +21,8 @@ export function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
+
+const dateTime = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" });
+
+/** "Oct 2, 2026, 11:16 AM" from an ISO timestamp, in the viewer's own time zone. */
+export const formatDateTime = (iso: string) => dateTime.format(new Date(iso));

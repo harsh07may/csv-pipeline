@@ -25,6 +25,7 @@ export const api = {
     }),
   startJob: (jobId: string) =>
     request<JobState>(`/api/jobs/${jobId}/start`, { method: "POST" }),
+  listJobs: (limit = 10) => request<JobState[]>(`/api/jobs?limit=${limit}`),
   getRows: (jobId: string, page: number, pageSize: number) =>
     request<RowsPage>(`/api/jobs/${jobId}/rows?page=${page}&page_size=${pageSize}`),
   getSummary: (jobId: string) => request<JobSummary>(`/api/jobs/${jobId}/summary`),

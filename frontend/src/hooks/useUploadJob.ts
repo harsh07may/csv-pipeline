@@ -1,4 +1,4 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, uploadToStorage } from "../api";
 
@@ -8,6 +8,7 @@ import { api, uploadToStorage } from "../api";
  */
 export function useUploadJob(onStarted: (jobId: string) => void) {
   const [step, setStep] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   const mutation = useMutation({
     mutationFn: async (file: File) => {
@@ -19,7 +20,10 @@ export function useUploadJob(onStarted: (jobId: string) => void) {
       await api.startJob(job_id);
       return job_id;
     },
-    onSuccess: onStarted,
+    onSuccess: (jobId) => {
+      onStarted(jobId);
+      void queryClient.invalidateQueries({ queryKey: ["jobs"] }); // show it in Recent imports
+    },
     onSettled: () => setStep(null),
   });
 
