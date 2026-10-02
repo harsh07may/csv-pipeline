@@ -70,62 +70,57 @@ def _sse(payload: dict) -> str:
 #* Sent first on every connection, because Redis pub/sub keeps no history:
 #* a client that connects late would otherwise see nothing until the next update.
 def _job_snapshot(job_id: str) -> dict | None:
-    """Returns  job's current state straight from the DB, as a plain dict."""
+    """Returns job's current state straight from the DB, as a plain dict."""
     with SessionLocal() as session:
         job = session.get(Job, job_id)
         if job is None:
             return None
         return JobOut.model_validate(job).model_dump(mode="json")
 
-#* Live progress over Server-Sent Events (one long-lived HTTP response).
-#*  worker --publish--> Redis channel "job:<id>:events" --> this endpoint --data: {...}--> browser
+#* Async generator: every `yield` sends one chunk to the browser, then pauses.
+async def _event_stream(job_id: str, request: Request):
+    #* 1) Subscribe BEFORE the DB read, so no update can slip through the gap.
+    pubsub = async_redis.pubsub()
+    await pubsub.subscribe(job_channel(job_id))
+
+    try:
+        #* 2) Current state first, for late joiners (blocking DB call, so run in a thread).
+        snapshot = await asyncio.to_thread(_job_snapshot, job_id)
+        if snapshot is None:
+            yield _sse({"status": "not_found"})
+            return
+        yield _sse(snapshot)
+
+        if snapshot["status"] in TERMINAL_STATUSES:
+            return
+
+        #* 3) Live updates, until the job finishes or the browser leaves.
+        while not await request.is_disconnected():
+            message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=15.0)
+            if message is None:
+                # ":" lines are SSE comments: a ping so proxies don't drop a quiet connection
+                yield ": keep-alive\n\n"
+                continue
+
+            event = json.loads(message["data"])
+            yield _sse(event)
+
+            if event["status"] in TERMINAL_STATUSES:
+                return
+
+    finally:
+        #* Always runs, so Redis connections don't leak.
+        await pubsub.unsubscribe()
+        await pubsub.aclose()
+
+
+#* worker --publish--> Redis "job:<id>:events" --> this endpoint --data: {...}--> browser
 @router.get("/{job_id}/events", tags=["live"])
-async def job_events(job_id: str, request: Request  ):
+async def job_events(job_id: str, request: Request):
     """Server-Sent Events stream: one `data:` line per progress update."""
 
-    #* An async generator: each `yield` sends one chunk to the browser and pauses here.
-    #* Nested only so it can use job_id and request from the route above.
-    async def event_stream():
-        #* 1) Subscribe BEFORE reading the DB. The other order could miss a message
-        #*    published between the read and the subscribe, and it would be lost for good.
-        pubsub = async_redis.pubsub()
-        await pubsub.subscribe(job_channel(job_id))
-
-        try:
-            #* 2) Send the current state first (for late joiners).
-            # SQLAlchemy + sqlite3 are blocking: run in a thread so the event loop stays free.
-            snapshot = await asyncio.to_thread(_job_snapshot, job_id)
-            if snapshot is None:
-                yield _sse({"status": "not_found"})
-                return
-            yield _sse(snapshot)                     # current state, for late joiners
-
-            if snapshot["status"] in TERMINAL_STATUSES:
-                return
-
-            #* 3) Forward live updates until the job finishes or the browser leaves.
-            while not await request.is_disconnected():
-                message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=15.0)
-                if message is None:
-                    # Lines starting with ":" are SSE comments. Sending one now and then
-                    # stops proxies from closing a quiet connection.
-                    yield ": keep-alive\n\n"
-                    continue
-                
-                event = json.loads(message["data"])
-                yield _sse(event)
-                
-                if event["status"] in TERMINAL_STATUSES:
-                    return
-                
-        finally:
-            #* Always runs (job done, client gone, or error) so Redis connections don't leak.
-            await pubsub.unsubscribe()
-            await pubsub.aclose()
-
-    #* Hands the generator to FastAPI, which keeps pulling from it and streaming each chunk out.
     return StreamingResponse(
-        event_stream(),
+        _event_stream(job_id, request),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},  # no proxy buffering
     )
