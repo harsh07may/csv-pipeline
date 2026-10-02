@@ -1,79 +1,67 @@
-import { useEffect, useState } from "react";
-import { api } from "../api.js";
-import type { RowsPage } from "../types";
-
-const PAGE_SIZE = 25;
+import { useState } from "react";
+import { useRows } from "../hooks/useRows";
+import { formatCount, formatMoney, formatUsd } from "../lib/format";
 
 interface RowsTableProps {
-  jobId: string
+  jobId: string;
 }
 
 export default function RowsTable({ jobId }: RowsTableProps) {
   const [page, setPage] = useState(1);
-  const [data, setData] = useState<RowsPage | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  // Refetch whenever the job or the page changes.
-  useEffect(() => {
-    let ignore = false; // guards against a slow old response overwriting a newer one
-    api
-      .getRows(jobId, page, PAGE_SIZE)
-      .then((result) => !ignore && setData(result))
-      .catch((err) => !ignore && setError(err.message));
-    return () => {
-      ignore = true;
-    };
-  }, [jobId, page]);
-  if (error) return <p className="error">{error}</p>;
-  if (!data) return <p>Loading rows…</p>;
+  const { data, error, isPending, isPlaceholderData } = useRows(jobId, page);
+
+  if (isPending) return <p className="note">Loading orders…</p>;
+  if (error) return <p className="error" role="alert">Couldn't load orders: {error.message}</p>;
+
   return (
-    <section className="card">
-      <h2>
-        Orders ({data.total}){" "}
-        {data.cached && <span className="badge">from cache</span>}
-      </h2>
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Order</th>
-              <th>Email</th>
-              <th>Country</th>
-              <th>Amount</th>
-              <th>USD</th>
-              <th>Date</th>
-              <th>High value</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.items.map((row) => (
-              <tr key={row.order_id}>
-                <td>{row.order_id}</td>
-                <td>{row.customer_email}</td>
-                <td>{row.country}</td>
-                <td>
-                  {row.amount.toFixed(2)} {row.currency}
-                </td>
-                <td>{row.amount_usd.toFixed(2)}</td>
-                <td>{row.order_date}</td>
-                <td>{row.is_high_value ? "Yes" : ""}</td>
+    <section className="orders" aria-labelledby="orders-title">
+      <h2 id="orders-title">Orders ({formatCount(data.total)})</h2>
+
+      <div className="panel table-panel" data-stale={isPlaceholderData}>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Order</th>
+                <th>Customer</th>
+                <th>Country</th>
+                <th className="num">Amount</th>
+                <th className="num">In USD</th>
+                <th>Date</th>
+                <th>High value</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <div className="pager">
-        <button onClick={() => setPage((p) => p - 1)} disabled={page <= 1}>
-          Previous
-        </button>
-        <span>
-          Page {data.page} of {data.total_pages}
-        </span>
-        <button
-          onClick={() => setPage((p) => p + 1)}
-          disabled={page >= data.total_pages}
-        >
-          Next
-        </button>
+            </thead>
+            <tbody>
+              {data.items.map((row) => (
+                <tr key={row.order_id}>
+                  <td>{row.order_id}</td>
+                  <td>{row.customer_email}</td>
+                  <td>{row.country}</td>
+                  <td className="num">{formatMoney(row.amount, row.currency)}</td>
+                  <td className="num">{formatUsd(row.amount_usd)}</td>
+                  <td>{row.order_date}</td>
+                  <td>{row.is_high_value ? <span className="flag">High value</span> : null}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <nav className="pager" aria-label="Pages of orders">
+          <button className="button button-quiet" onClick={() => setPage((p) => p - 1)} disabled={page <= 1}>
+            Previous
+          </button>
+          <span>
+            Page {data.page} of {data.total_pages}
+          </span>
+          <button
+            className="button button-quiet"
+            onClick={() => setPage((p) => p + 1)}
+            disabled={page >= data.total_pages}
+          >
+            Next
+          </button>
+        </nav>
       </div>
     </section>
   );

@@ -1,39 +1,361 @@
+/* ------------------------------------------------------------------ tokens */
+:root {
+  color-scheme: light dark;
+
+  --bg: #eef1f3;
+  --surface: #ffffff;
+  --ink: #16222b;
+  --ink-soft: #52616b;
+  --line: #d5dce1;
+  --track: #dce3e8;
+  --accent: #0f766e;
+  --accent-strong: #0b5c56;
+  --on-accent: #ffffff;
+  --reject: #c2410c;
+  --danger-bg: #fdeee8;
+
+  --font: "Instrument Sans Variable", system-ui, sans-serif;
+  --radius: 8px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e1519;
+    --surface: #151f25;
+    --ink: #e6edf0;
+    --ink-soft: #93a4ae;
+    --line: #26343c;
+    --track: #26343c;
+    --accent: #2dd4bf;
+    --accent-strong: #5eead4;
+    --on-accent: #06221f;
+    --reject: #fb923c;
+    --danger-bg: #2b1a12;
+  }
+}
+
+/* ------------------------------------------------------------------- base */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 body {
-  font-family: system-ui, sans-serif;
   margin: 0;
-  background: #f5f6f8;
-  color: #1d2330;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
 }
-main {
-  max-width: 960px;
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+h1 {
+  font-size: 2.25rem;
+  font-weight: 650;
+  letter-spacing: -0.025em;
+}
+h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+h3 {
+  font-size: 1rem;
+  font-weight: 600;
+}
+p {
+  margin: 0;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ----------------------------------------------------------------- layout */
+.page {
+  max-width: 64rem;
   margin: 0 auto;
-  padding: 2rem 1rem;
+  padding: 3rem 1rem 5rem;
+  display: grid;
+  gap: 2rem;
 }
-.card {
-  background: #fff;
-  border: 1px solid #dde1e7;
-  border-radius: 8px;
-  padding: 1rem 1.25rem;
-  margin-bottom: 1rem;
+
+.masthead {
+  display: grid;
+  gap: 0.5rem;
 }
-button {
-  padding: 0.45rem 0.9rem;
-  margin-left: 0.5rem;
-  cursor: pointer;
+.masthead p {
+  color: var(--ink-soft);
+  max-width: 56ch;
 }
-progress {
-  width: 100%;
-  height: 1rem;
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+}
+
+.note {
+  color: var(--ink-soft);
 }
 .error {
-  color: #b42318;
+  color: var(--reject);
+  font-weight: 500;
 }
-.badge {
-  font-size: 0.75rem;
-  background: #e7f3ec;
-  color: #1f6f43;
-  padding: 0.1rem 0.5rem;
+
+/* ----------------------------------------------------------------- button */
+.button {
+  font: inherit;
+  font-weight: 600;
+  padding: 0.6rem 1.1rem;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--accent);
+  color: var(--on-accent);
+  cursor: pointer;
+}
+.button:hover:not(:disabled) {
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
+}
+.button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+a.button {
+  display: inline-block;
+  text-decoration: none;
+}
+.button-quiet {
+  background: transparent;
+  color: var(--ink);
+  border-color: var(--line);
+  padding: 0.4rem 0.8rem;
+}
+.button-quiet:hover:not(:disabled) {
+  background: var(--bg);
+  border-color: var(--ink-soft);
+}
+
+/* --------------------------------------------------------------- uploader */
+.uploader {
+  display: grid;
+  gap: 1rem;
+  justify-items: start;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+.dropzone {
+  display: grid;
+  gap: 0.25rem;
+  width: 100%;
+  padding: 2rem 1.25rem;
+  border: 2px dashed var(--line);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+.dropzone:hover,
+.dropzone[data-dragging="true"],
+.dropzone:focus-within {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+.dropzone-title {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.dropzone-hint {
+  color: var(--ink-soft);
+}
+
+/* -------------------------------------------------------- job progress run */
+.run {
+  display: grid;
+  gap: 1.25rem;
+}
+.run-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+.run-head h2 {
+  overflow-wrap: anywhere;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+}
+.status::before {
+  content: "";
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--ink-soft);
+}
+.status[data-status="processing"]::before {
+  background: var(--accent);
+}
+.status[data-status="completed"]::before {
+  background: var(--accent);
+}
+.status[data-status="failed"]::before,
+.status[data-status="not_found"]::before {
+  background: var(--reject);
+}
+
+/* The memorable part: valid rows fill from the left, rejected rows follow in a second colour. */
+.ingest {
+  display: flex;
+  height: 0.875rem;
   border-radius: 999px;
+  background: var(--track);
+  overflow: hidden;
+}
+.ingest-valid {
+  background: var(--accent);
+  transition: width 0.4s ease-out;
+}
+.ingest-rejected {
+  background: var(--reject);
+  transition: width 0.4s ease-out;
+}
+
+/* ------------------------------------------------------ figures (dl rows) */
+.figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 2.5rem;
+  margin: 0;
+}
+.figures dt {
+  color: var(--ink-soft);
+}
+.figures dd {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.figures-large dd {
+  font-size: 2rem;
+  letter-spacing: -0.02em;
+}
+
+/* ---------------------------------------------------------------- results */
+.results {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.bars {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+.bars li {
+  display: grid;
+  grid-template-columns: 2.5rem minmax(4rem, 1fr) minmax(8rem, auto);
+  align-items: center;
+  gap: 0.75rem;
+}
+.bars-label {
+  font-weight: 600;
+}
+.bars-track {
+  height: 0.625rem;
+  border-radius: 999px;
+  background: var(--track);
+  overflow: hidden;
+}
+.bars-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+.bars-value {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.bars-count {
+  color: var(--ink-soft);
+}
+@media (max-width: 40rem) {
+  .bars li {
+    grid-template-columns: 2.5rem 1fr;
+  }
+  .bars-value {
+    grid-column: 1 / -1;
+    text-align: left;
+  }
+}
+
+.rejects {
+  border-left: 3px solid var(--reject);
+  padding-left: 1rem;
+}
+.rejects summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.rejects ul {
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.35rem;
+}
+.rejects-line {
+  display: inline-block;
+  min-width: 5.5rem;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ----------------------------------------------------------------- orders */
+.orders {
+  display: grid;
+  gap: 0.75rem;
+}
+.table-panel {
+  padding: 0;
+  overflow: hidden;
+  transition: opacity 0.15s;
+}
+.table-panel[data-stale="true"] {
+  opacity: 0.6;
 }
 .table-wrap {
   overflow-x: auto;
@@ -41,19 +363,46 @@ progress {
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
 }
 th,
 td {
   text-align: left;
-  padding: 0.4rem 0.6rem;
-  border-bottom: 1px solid #eceff3;
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid var(--line);
   white-space: nowrap;
 }
+th {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+tbody tr:last-child td {
+  border-bottom: 0;
+}
+.num {
+  text-align: right;
+}
+.flag {
+  color: var(--accent);
+  font-weight: 600;
+}
+
 .pager {
   display: flex;
-  gap: 0.75rem;
   align-items: center;
   justify-content: flex-end;
-  margin-top: 0.75rem;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--line);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+  }
 }

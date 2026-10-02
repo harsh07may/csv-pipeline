@@ -4,17 +4,21 @@ Nothing here talks to the database or object storage, so everything is easy to t
 """
 from collections.abc import Sequence
 from datetime import date, datetime, timezone
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 from email_validator import EmailNotValidError, validate_email
 
 # --- Constants ---
 REQUIRED_COLUMNS = ["order_id", "customer_email", "amount", "currency", "order_date", "country"]
 ACCEPTED_DATE_FORMATS = ["%Y-%m-%d", "%d/%m/%Y"]   # ISO and day/month/year
-HIGH_VALUE_USD = 1000.0   # orders at or above this (in USD) are flagged high value
-USD_RATES = {"USD": 1.0, 
-             "EUR": 1.08, 
-             "GBP": 1.27, 
-             "INR": 0.012}
+# Money is Decimal, never float: 0.1 + 0.2 is exactly 0.3, and rounding is predictable.
+CENT = Decimal("0.01")
+MAX_AMOUNT = Decimal("9999999999.99")   # the largest value a NUMERIC(12, 2) column can hold
+HIGH_VALUE_USD = Decimal("1000")        # orders at or above this (in USD) are flagged high value
+USD_RATES = {"USD": Decimal("1"),
+             "EUR": Decimal("1.08"),
+             "GBP": Decimal("1.27"),
+             "INR": Decimal("0.012")}
 
 
 # --- Errors ---
@@ -52,11 +56,14 @@ def _parse_date(date_string: str) -> date:
     raise RowError(f"unrecognised date '{date_string}' (use YYYY-MM-DD or DD/MM/YYYY)")
 
 
-def _parse_amount(amount_string: str) -> float:
-    """Parse an amount, accepting thousands separators like "1,250.00"."""
+def _parse_amount(amount_string: str) -> Decimal:
+    """Parse an amount to the cent, accepting thousands separators like "1,250.00"."""
     try:
-        return float(amount_string.replace(",", ""))
-    except ValueError:
+        amount = Decimal(amount_string.replace(",", ""))
+        if not amount.is_finite():   # "nan" and "inf" parse fine but are not amounts
+            raise InvalidOperation
+        return amount.quantize(CENT, rounding=ROUND_HALF_UP)   # also fails for absurdly large values
+    except InvalidOperation:
         raise RowError(f"amount '{amount_string}' is not a number") from None
 
 
@@ -104,7 +111,9 @@ def process_row(raw_row: dict, today: date | None = None) -> dict:
     if order_date > today:
         raise RowError(f"order date {order_date.isoformat()} is in the future")
 
-    amount_usd = round(amount * USD_RATES[currency], 2)
+    amount_usd = (amount * USD_RATES[currency]).quantize(CENT, rounding=ROUND_HALF_UP)
+    if max(amount, amount_usd) > MAX_AMOUNT:
+        raise RowError("amount is too large")
 
     # Keys match the Order model's columns, so the worker can insert this dict directly.
     return {

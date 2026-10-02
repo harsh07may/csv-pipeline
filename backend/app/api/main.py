@@ -1,19 +1,10 @@
 """FastAPI app for the CSV pipeline: creates the app and plugs in the routers."""
-from contextlib import asynccontextmanager
-
 from fastapi import FastAPI
 
 from app.api.routes import health, jobs, uploads
-from app.core.db import init_db
 
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    init_db()   # create tables on startup (use Alembic on prod)
-    yield
-
-
-app = FastAPI(title="CSV Pipeline", lifespan=lifespan)
+# Tables are created by migrations (`alembic upgrade head`), which run before the server starts.
+app = FastAPI(title="CSV Pipeline")
 
 # Every route lives under /api; each module owns one part of the flow.
 app.include_router(health.router, prefix="/api")

@@ -6,7 +6,14 @@ These classes also generate the OpenAPI schema you can browse at /docs.
 """
 
 from datetime import date, datetime
-from pydantic import BaseModel, ConfigDict, Field 
+from decimal import Decimal
+from typing import Annotated
+
+from pydantic import BaseModel, ConfigDict, Field, PlainSerializer
+
+# Money stays an exact Decimal inside Python (database in, cache in and out) and only becomes a
+# plain JSON number at the very last step, so the frontend gets 1250.5 rather than "1250.50".
+Money = Annotated[Decimal, PlainSerializer(float, return_type=float, when_used="json")]
 
 class UploadRequest(BaseModel):
     filename: str = Field(examples=["orders.csv"])
@@ -34,8 +41,8 @@ class OrderOut(BaseModel):
     customer_email: str
     country: str
     currency: str
-    amount: float
-    amount_usd: float
+    amount: Money
+    amount_usd: Money
     order_date: date
     is_high_value: bool
 
@@ -50,7 +57,7 @@ class RowsPage(BaseModel):
 class CountryTotal(BaseModel):
     country: str
     orders: int
-    revenue_usd: float
+    revenue_usd: Money
 
 class RejectedRowOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -60,7 +67,7 @@ class RejectedRowOut(BaseModel):
 class Summary(BaseModel):
     valid_rows: int
     invalid_rows: int
-    revenue_usd: float
+    revenue_usd: Money
     high_value_orders: int
     by_country: list[CountryTotal]
     sample_errors: list[RejectedRowOut]

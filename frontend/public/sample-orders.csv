@@ -1,0 +1,11 @@
+order_id,customer_email,amount,currency,order_date,country
+ORD-0001,anna.keller@example.com,129.90,EUR,2026-03-04,DE
+ORD-0002,Sam.Rivera@Example.com,"1,250.00",usd,2026-03-05,US
+ORD-0003,priya.nair@example.com,18500.00,INR,2026-03-07,IN
+ORD-0004,oliver.hughes@example.com,74.50,GBP,2026-03-09,GB
+ORD-0005,marta.silva@example.com,980.00,EUR,12/03/2026,DE
+ORD-0006,chen.wei@example.com,2300.00,USD,2026-03-14,US
+ORD-0007,jack.o-neill@example.com,42.00,GBP,2026-03-15,GB
+ORD-0008,aisha.khan@example.com,64000.00,INR,2026-03-18,IN
+ORD-0009,lena.fischer@example.com,15.75,EUR,2026-03-21,DE
+ORD-0010,diego.ramos@example.com,560.25,USD,2026-03-22,US

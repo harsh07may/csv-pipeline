@@ -3,14 +3,35 @@ services:
   api:
     container_name: api
     build: ./backend
-    command: uvicorn app.api.main:app --host 0.0.0.0 --port 8000 --reload
+    # Apply database migrations first, then start the server. Only the api migrates, so the
+    # worker never races it; the worker starts after the database is healthy.
+    command: sh -c "alembic -c app/alembic.ini upgrade head && uvicorn app.api.main:app --host 0.0.0.0 --port 8000 --reload"
     env_file:
       - .env
     ports: ["8000:8000"]
     volumes:
       - ./backend/app:/code/app # your edits appear inside the container; --reload restarts
-      - sqlite-data:/data
-    depends_on: [garage, redis]
+    depends_on:
+      postgres: { condition: service_healthy } # wait until the database accepts connections
+      garage: { condition: service_started }
+      redis: { condition: service_started }
+
+  # Postgres: jobs, orders and rejected rows
+  postgres:
+    container_name: postgres
+    image: postgres:17-alpine
+    environment:
+      # Filled in from .env, so the database and the app share one set of credentials.
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
 
   # Garage: S3-compatible blob storage
   garage:
@@ -61,10 +82,12 @@ services:
       - .env
     volumes:
       - ./backend/app:/code/app
-      - sqlite-data:/data
-    depends_on: [garage, redis]
+    depends_on:
+      postgres: { condition: service_healthy }
+      garage: { condition: service_started }
+      redis: { condition: service_started }
 
 volumes:
   garage-meta:
   garage-data:
-  sqlite-data:
+  postgres-data:

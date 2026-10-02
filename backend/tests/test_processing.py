@@ -1,5 +1,6 @@
 """Run from backend/:  uv run pytest"""
 from datetime import date
+from decimal import Decimal
 import pytest
 from app.core.processing import RowError, process_row
 
@@ -19,6 +20,11 @@ def test_normalizes_and_applies_rules():
 
 @pytest.mark.parametrize("field,value,message", [
     ("amount", "abc", "not a number"),
+    ("amount", "nan", "not a number"),
+    ("amount", "inf", "not a number"),
+    ("amount", "1e30", "not a number"),
+    ("amount", "99999999999", "too large"),
+    ("amount", "0.004", "greater than zero"),   # rounds to 0.00
     ("amount", "-5", "greater than zero"),
     ("currency", "JPY", "unsupported currency"),
     ("order_date", "2027-01-01", "in the future"),
@@ -29,3 +35,9 @@ def test_normalizes_and_applies_rules():
 def test_rejects_bad_rows(field, value, message):
     with pytest.raises(RowError, match=message):
         process_row({**GOOD, field: value}, today=TODAY)
+
+def test_money_is_exact_decimal_rounded_half_up():
+    row = process_row({**GOOD, "amount": "10.005", "currency": "usd"}, today=TODAY)
+    assert row["amount"] == Decimal("10.01")        # float would give 10.0 (10.005 is 10.00499...)
+    assert row["amount_usd"] == Decimal("10.01")
+    assert isinstance(row["amount"], Decimal)

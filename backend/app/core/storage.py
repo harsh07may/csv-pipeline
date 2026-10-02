@@ -39,8 +39,12 @@ def object_exists(object_key: str) -> bool:
     try:
         internal_s3.head_object(Bucket=S3_BUCKET, Key=object_key)
         return True
-    except ClientError:
-        return False
+    except ClientError as err:
+        # Only "no such object" means missing. A permissions or server error is a real
+        # failure and must not be reported to the user as "file not found".
+        if err.response["Error"]["Code"] in {"404", "NoSuchKey", "NotFound"}:
+            return False
+        raise
 
 def download_file(object_key: str, destination_path: str) -> None:
     """Download an object from the S3 bucket to a local file."""

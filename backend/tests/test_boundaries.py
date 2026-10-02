@@ -4,12 +4,8 @@ If someone writes `from app.worker.tasks import process_csv` in the API, this fa
 The API only refers to the job by its import path string when enqueueing.
 """
 
-import os
 import sys
 
-# Dummy values so config imports; nothing here connects to S3 or Redis.
-os.environ.setdefault("S3_ACCESS_KEY", "test")
-os.environ.setdefault("S3_SECRET_KEY", "test")
 
 def test_api_does_not_import_worker():
     import app.api.main

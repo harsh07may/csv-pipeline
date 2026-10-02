@@ -4,9 +4,10 @@
 These describe the DATABASE. What the API returns lives in api/schemas.py.
 """
 from datetime import date, datetime, timezone
+from decimal import Decimal
 from enum import StrEnum
 
-from sqlalchemy import ForeignKey, Index, String
+from sqlalchemy import DateTime, ForeignKey, Index, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .db import Base
@@ -34,7 +35,7 @@ class Job(Base):
     valid_rows: Mapped[int] = mapped_column(default=0)
     invalid_rows: Mapped[int] = mapped_column(default=0)
     error: Mapped[str | None]
-    created_at: Mapped[datetime] = mapped_column(default=_utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
 class Order(Base):
     __tablename__ = "orders"
@@ -47,8 +48,8 @@ class Order(Base):
     customer_email: Mapped[str]
     country: Mapped[str] = mapped_column(String(2))
     currency: Mapped[str] = mapped_column(String(3))
-    amount: Mapped[float]
-    amount_usd: Mapped[float]
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))        # exact decimal, not float
+    amount_usd: Mapped[Decimal] = mapped_column(Numeric(12, 2))
     order_date: Mapped[date]
     is_high_value: Mapped[bool]
 

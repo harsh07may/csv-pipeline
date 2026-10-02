@@ -5,12 +5,6 @@ first (pytest runs files alphabetically) or it would see app.worker in sys.modul
 """
 
 import importlib
-import os
-
-# Dummy values so config imports; nothing here connects to S3 or Redis.
-os.environ.setdefault("S3_ACCESS_KEY", "test")
-os.environ.setdefault("S3_SECRET_KEY", "test")
-
 
 def test_task_path_points_to_real_function():
     from app.core.config import PROCESS_CSV_TASK
