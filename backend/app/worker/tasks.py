@@ -4,6 +4,8 @@ import os
 import tempfile
 import time
 
+import structlog
+from opentelemetry import trace
 from sqlalchemy import delete, insert
 from sqlalchemy.orm import Session
 
@@ -24,40 +26,54 @@ from app.core.storage import download_file
 BATCH_SIZE = 500          # rows per transaction + progress event
 MAX_STORED_ERRORS = 200   # keep a sample of rejected rows, not millions of them
 
+log = structlog.get_logger(__name__)      # job_id and trace ids are added to every line for us
+tracer = trace.get_tracer(__name__)
+
 def process_csv(job_id: str) -> dict:
     """Entry point. RQ calls this with the arguments given to queue.enqueue()."""
-    
+
     with SessionLocal() as session:
         job = session.get(Job, job_id)
         if job is None:
+            log.warning("job_not_found", job_id=job_id)
             return {"session": "job not found"}
 
         job.status = JobStatus.PROCESSING
         session.commit()
         publish_job_event(job_id, {"status": job.status, "total_rows": 0})
+        log.info("job_started", job_id=job_id, filename=job.filename)
+        started = time.perf_counter()
 
         try:
             with tempfile.TemporaryDirectory() as tmp_dir:
                 local_path = os.path.join(tmp_dir, "input.csv")
-                download_file(job.object_key, local_path)
-                _process_file(session, job, local_path)
-        
+                with tracer.start_as_current_span("download file"):
+                    download_file(job.object_key, local_path)
+                with tracer.start_as_current_span("process file") as span:
+                    _process_file(session, job, local_path)
+                    span.set_attributes({"rows.total": job.total_rows,
+                                         "rows.valid": job.valid_rows,
+                                         "rows.invalid": job.invalid_rows})
+
         except Exception as exc:
             session.rollback()                  # discard the half-finished batch
             job.status, job.error = JobStatus.FAILED, str(exc)
             session.commit()
             publish_job_event(job_id, {"status": job.status, "error": job.error})
-            raise  
+            # No traceback here: it keeps travelling up (raise) and RQ logs it once.
+            log.error("job_failed", job_id=job_id, error=str(exc))
+            raise
 
         job.status = JobStatus.COMPLETED
         session.commit()
-        print(f"Job {job_id}: {job.total_rows} rows")
 
-        stats = {"total_rows": job.total_rows, 
+        stats = {"total_rows": job.total_rows,
                  "valid_rows": job.valid_rows,
                  "invalid_rows": job.invalid_rows
                  }
         publish_job_event(job_id, {"status": job.status, **stats})
+        log.info("job_completed", job_id=job_id, **stats,
+                 duration_ms=round((time.perf_counter() - started) * 1000))
 
     return stats    
 
@@ -124,6 +140,7 @@ def _save_batch(session: Session, job: Job,
     
     job.total_rows, job.valid_rows, job.invalid_rows = total, valid, invalid
     session.commit()   # rows + progress counters land in ONE transaction: never out of sync
+    log.debug("batch_saved", job_id=job.id, total=total, valid=valid, invalid=invalid)
 
     publish_job_event(job.id, {
     "status": JobStatus.PROCESSING, "expected_rows": job.expected_rows,

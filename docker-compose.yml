@@ -72,11 +72,18 @@ services:
     image: redis:7-alpine
     ports: ["6379:6379"]
 
-  # Background worker: RQ + scheduled jobs
+  # Jaeger: collects traces from the api and the worker, and shows them at http://localhost:16686
+  jaeger:
+    container_name: jaeger
+    image: jaegertracing/jaeger:2.21.0
+    ports:
+      - "16686:16686" # trace UI. The apps send spans to jaeger:4318 (OTLP over HTTP) inside the network.
+
+  # Background worker: pulls jobs from the "csv" queue (see app/worker/main.py)
   worker:
     build: ./backend
-    # 'csv' - queue name, --url - redis connection string, --with-scheduler - enable scheduled jobs
-    command: rq worker csv --url ${REDIS_URL}
+    # Same as `rq worker csv`, but sets up structured logs and tracing before the first job.
+    command: python -m app.worker.main
     env_file:
       - .env
     volumes:

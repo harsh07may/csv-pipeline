@@ -32,3 +32,10 @@ SIMULATED_DELAY_SECONDS = float(os.getenv("SIMULATED_DELAY_SECONDS", "0"))
 
 # --- Cache ---
 CACHE_TTL_SECONDS = 300
+
+# --- Observability ---
+# "json": one JSON object per line (containers, log shippers). "console": readable, for local dev.
+LOG_FORMAT = os.getenv("LOG_FORMAT", "console").lower()
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+# Where traces go and how: the standard OTEL_* variables (OTEL_EXPORTER_OTLP_ENDPOINT,
+# OTEL_SDK_DISABLED, ...) are read by OpenTelemetry itself, see .env.

@@ -3,6 +3,7 @@ from typing import Annotated
 
 import redis
 from fastapi import Depends, HTTPException
+from opentelemetry import trace
 from rq import Queue
 from sqlalchemy.orm import Session
 
@@ -25,6 +26,7 @@ SessionDep = Annotated[Session, Depends(get_session)]
 
 def get_job(job_id: str, session: SessionDep) -> Job:
     """The job named in the URL, or a 404. `job_id` is read from the path automatically."""
+    trace.get_current_span().set_attribute("job.id", job_id)   # searchable in the trace UI
     job = session.get(Job, job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")

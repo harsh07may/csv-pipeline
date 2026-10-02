@@ -2,8 +2,10 @@
 import json
 import math
 
+import structlog
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
+from opentelemetry import propagate, trace
 from redis.exceptions import RedisError
 from sqlalchemy import func, select
 
@@ -19,6 +21,8 @@ from app.core.redis_client import async_redis
 from app.core.storage import object_exists
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
+log = structlog.get_logger(__name__)
+tracer = trace.get_tracer(__name__)
 
 
 @router.get("", response_model=list[JobOut])
@@ -54,14 +58,22 @@ def start_job(job: JobDep, session: SessionDep):
     session.commit()
 
     # Enqueue by import path of the actual function
-    try:
-        queue.enqueue(PROCESS_CSV_TASK, job.id, job_timeout=600)
-    except RedisError:
-        # The queue is unreachable. Put the job back so the client can simply try again;
-        # otherwise it would sit in "queued" forever with nothing to run it.
-        job.status = JobStatus.AWAITING_UPLOAD
-        session.commit()
-        raise HTTPException(status_code=503, detail="Could not queue the job. Try again in a moment.")
+    with tracer.start_as_current_span("enqueue job", attributes={"job.id": job.id}):
+        #* Carry this trace across the queue: the worker picks it up from the job's meta, so
+        #* the worker's spans land in the same trace as this request.
+        trace_carrier: dict[str, str] = {}
+        propagate.inject(trace_carrier)
+        try:
+            queue.enqueue(PROCESS_CSV_TASK, job.id, job_timeout=600, meta={"otel": trace_carrier})
+        except RedisError:
+            # The queue is unreachable. Put the job back so the client can simply try again;
+            # otherwise it would sit in "queued" forever with nothing to run it.
+            job.status = JobStatus.AWAITING_UPLOAD
+            session.commit()
+            log.exception("job_enqueue_failed", job_id=job.id)
+            raise HTTPException(status_code=503, detail="Could not queue the job. Try again in a moment.")
+
+    log.info("job_queued", job_id=job.id, filename=job.filename)
     return job
 
 

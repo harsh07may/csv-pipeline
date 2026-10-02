@@ -1,6 +1,7 @@
 """Step 1 of the flow: the client asks where to upload its CSV."""
 import uuid
 
+import structlog
 from fastapi import APIRouter, HTTPException
 
 from app.api.deps import SessionDep
@@ -9,6 +10,7 @@ from app.core.models import Job
 from app.core.storage import presigned_upload_url
 
 router = APIRouter(tags=["uploads"])
+log = structlog.get_logger(__name__)
 
 
 @router.post("/uploads", response_model=UploadResponse)
@@ -23,4 +25,5 @@ def create_upload(body: UploadRequest, session: SessionDep):
 
     session.add(new_job)
     session.commit()
+    log.info("job_created", job_id=job_id, filename=body.filename)
     return UploadResponse(job_id=job_id, upload_url=presigned_upload_url(object_key))

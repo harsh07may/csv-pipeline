@@ -9,3 +9,5 @@ import os
 os.environ.setdefault("S3_ACCESS_KEY", "test")
 os.environ.setdefault("S3_SECRET_KEY", "test")
 os.environ.setdefault("DATABASE_URL", "postgresql+psycopg://test:test@localhost:5432/test")
+
+os.environ.setdefault("OTEL_SDK_DISABLED", "true")   # no tracing (or exporter threads) in tests
